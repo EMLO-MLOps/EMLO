@@ -64,11 +64,9 @@ img_width, img_height = 150, 150
 top_model_weights_path = 'model.pth'
 train_data_dir = os.path.join('data', 'train')
 validation_data_dir = os.path.join('data', 'validation')
-nb_validation_samples = 800
 epochs = 10
-batch_size = 10
+batch_size = 64
 num_workers = 2
-epochs = 3
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -85,7 +83,7 @@ model = model.to(device)
 print(f'--- Model Loaded --- ')
 
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.002, amsgrad=True)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, amsgrad=True)
 scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[500,1000,1500], gamma=0.5)
 
 print(f'--- Data Loaded --- ')

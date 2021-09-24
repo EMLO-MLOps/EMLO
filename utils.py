@@ -12,6 +12,7 @@ from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import tqdm
 from PIL import Image
 import pandas as pd
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 class CatDogDataset(Dataset):
@@ -61,12 +62,14 @@ def get_val_transform():
 
 
 def get_model(num_class):
-    model = models.vgg11(pretrained=True)
-    num_ftrs = model.classifier[0].in_features
-    model.classifier = nn.Sequential(
+    model = models.resnet50(pretrained=True)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, 2)
+    #num_ftrs = model.classifier[0].in_features
+    '''model.classifier = nn.Sequential(
         #nn.Linear(num_ftrs, 500),
         nn.Linear(num_ftrs, num_class)
-    )
+    )'''
     return(model)
 
 
@@ -85,6 +88,7 @@ def train_model(model, epochs, dataloader, device, criterion, optimizer, schedul
 
     for epoch in range(epochs):
 
+
         model.train()
         total_loss = 0
         loss_list = []
@@ -102,14 +106,14 @@ def train_model(model, epochs, dataloader, device, criterion, optimizer, schedul
             total_loss += loss.item()
             scheduler.step()
             
-            if itr%p_itr == 0:
-                pred = torch.argmax(output, dim=1)
-                correct = pred.eq(labels)
-                acc = torch.mean(correct.float())
-                print('[Epoch {}/{}] Iteration {} -> Train Loss: {:.4f}, Accuracy: {:.3f}'.format(epoch+1, epochs, itr, total_loss/p_itr, acc))
-                loss_list.append(total_loss/p_itr)
-                acc_list.append(acc)
-                total_loss = 0
+
+            pred = torch.argmax(output, dim=1)
+            correct = pred.eq(labels)
+            acc = torch.mean(correct.float())
+            print('[Epoch {}/{}] Iteration {} -> Train Loss: {:.4f}, Accuracy: {:.3f}'.format(epoch+1, epochs, itr, total_loss/p_itr, acc))
+            loss_list.append(total_loss/p_itr)
+            acc_list.append(acc)
+            total_loss = 0
                 
             itr += 1
 
@@ -125,26 +129,17 @@ def train_model(model, epochs, dataloader, device, criterion, optimizer, schedul
     return([total_loss, loss_list, acc_list])
 
 
-def accuracy_score(actual, pred):
-    collate = 0
-    dog = 0
-    cat = 0
+def accuracy_scores(actual, pred):
+    
+    target_names = ['dog', 'cat']
+    cm = confusion_matrix(actual, pred)
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
 
-    pred = pred.cpu()
+    scores = [accuracy_score(actual, pred)]
+    scores.extend(cm.diagonal())
+    print(f'-- Accuracy Scores --- {scores} --')
 
-    for i in range(len(actual)):
-        if actual[i] == pred[i]:
-            collate+=1
-        if actual[i] == pred[i] == 0:
-            dog += 1
-        if actual[i] == pred[i] == 1:
-            cat += 1
-
-    collate = collate / len(actual) * 100.0
-    dog = dog / np.sum(actual == 0) * 100.0
-    cat = cat / np.sum(actual == 1) * 100.0
-
-    return([collate, dog, cat])
+    return(scores)
 
 
 
@@ -152,10 +147,7 @@ def eval_model(model, test_loader, device):
     model.eval()
 
     pred_list = []
-
-    acc_list = []
-    dog_list = []
-    cat_list = []
+    actual_list = []
 
     for x, fn in test_loader:
         with torch.no_grad():
@@ -163,11 +155,11 @@ def eval_model(model, test_loader, device):
             output = model(x)
             pred = torch.argmax(output, dim=1)
             pred_list += [p.item() for p in pred]
-            scores = accuracy_score(fn, pred)
+            actual_list += [a for a in fn]
 
-            acc_list.append(scores[0])
-            dog_list.append(scores[1])
-            cat_list.append(scores[2])
+    scores = accuracy_scores(actual_list, pred_list)
 
-    submission = pd.DataFrame({"total": acc_list, "dog": dog_list, "cat": cat_list})
+    submission = pd.DataFrame({"total": scores[0], 
+                               "dog": scores[1], 
+                               "cat": scores[2]}, index=[0])
     submission.to_csv('metrics.csv', index=False)
