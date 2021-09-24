@@ -33,6 +33,8 @@ Datasets and ML model getting started
 
 
 #### Data Directory Structure
+<pre>
+
 data
 ├── train
 │   ├── dogs
@@ -53,6 +55,7 @@ data
        ├── ...
        └── cat.1400.jpg
        
+</pre>
        
 ### Add data with DVC
 > dvc add data
