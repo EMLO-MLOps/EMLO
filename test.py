@@ -7,7 +7,7 @@ def check_data_file():
 
   
 def check_model_file():
-  file ='model.h5'
+  file ='model.pth'
   assert not os.path.exist(file), "Model file is uploaded"
 
 def check_model_acc():
